@@ -86,11 +86,9 @@ class UserManager:
         """
         if not self.pool:
             await self.create_pool()
-        dn = '{}={},{}'.format(
-            self.settings.ldap_username_attribute,
-            username,
-            self.settings.ldap_basedn
-        )
+        # Converts the string such as "CN=Users,DC=auth,DC=company,DC=com" into the domain "auth.company.com".
+        domain = '.'.join(part.split('=')[1] for part in self.settings.ldap_basedn.lower().split(',') if part.startswith('dc='))
+        dn = f'{username}@{domain}'
         client = self.client()
         client.set_credentials("SIMPLE", user=dn, password=password)
         try:
@@ -264,7 +262,7 @@ class User(BaseModel):
     @classmethod
     def parse_ldap(cls, data: LDAPObject) -> "User":
         kwargs = {
-            'uid': data['uid'][0],
+            'uid': data[cls.objects.settings.ldap_username_attribute][0],
             'full_name': data['cn'][0],
         }
         return cls(**kwargs)
